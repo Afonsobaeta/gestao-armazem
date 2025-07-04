@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão Integrada de Obra</title>
+
+    <!-- Meta Tags para PWA -->
+    <meta name="theme-color" content="#4f46e5"/>
+    <meta name="description" content="Aplicação integrada para controlo de inventário e rastreamento de equipamentos.">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Biblioteca para ler QR Codes -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- Bibliotecas para gerar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); }
+        .status-badge { padding: 4px 12px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
+        .status-disponivel { background-color: #dcfce7; color: #166534; border: 1px solid #4ade80; }
+        .status-indisponivel { background-color: #fffbeb; color: #b45309; border: 1px solid #f59e0b; }
+    </style>
+</head>
+<body class="antialiased text-slate-800">
+
+    <!-- Contentor principal -->
+    <div id="app-container" class="max-w-5xl mx-auto p-4 md:p-6">
+
+        <!-- Ecrã de Carregamento -->
+        <div id="loading-screen" class="text-center py-20 px-4">
+            <svg class="animate-spin h-8 w-8 text-indigo-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-4 text-slate-500">A iniciar aplicação...</p>
+        </div>
+
+        <!-- HUB PRINCIPAL -->
+        <main id="hub-view" class="hidden">
+            <header class="text-center mb-10">
+                <h1 class="text-4xl font-bold text-slate-900">Plataforma de Gestão</h1>
+                <p class="text-lg text-slate-500 mt-2">Selecione o módulo que pretende utilizar.</p>
+            </header>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Card Controlo de Inventário -->
+                <div id="go-to-inventory" class="bg-white p-8 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    <div class="bg-indigo-100 text-indigo-600 rounded-full h-16 w-16 flex items-center justify-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800">Controlo de Inventário</h2>
+                    <p class="text-slate-500 mt-1">Registe o consumo de materiais e artigos.</p>
+                </div>
+
+                <!-- Card Controlo de Equipamentos -->
+                <div id="go-to-equipment" class="bg-white p-8 rounded-2xl shadow-lg cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                     <div class="bg-emerald-100 text-emerald-600 rounded-full h-16 w-16 flex items-center justify-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800">Controlo de Equipamentos</h2>
+                    <p class="text-slate-500 mt-1">Rastreie a requisição e devolução de ferramentas.</p>
+                </div>
+            </div>
+            <div class="mt-12 text-center">
+                 <button id="go-to-settings" class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105 flex items-center gap-2 mx-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    <span>Definições / Dados Mestres</span>
+                </button>
+            </div>
+        </main>
+
+        <!-- VISTA DE MÓDULO (INVENTÁRIO OU EQUIPAMENTOS) -->
+        <div id="module-view" class="hidden">
+            <header class="mb-6 pb-4 border-b border-slate-200 flex items-start justify-between">
+                <div>
+                    <button id="back-to-hub-btn" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold mb-2 flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" /></svg>
+                        Voltar ao Menu Principal
+                    </button>
+                    <h1 id="module-title" class="text-3xl font-bold text-slate-900"></h1>
+                    <p id="module-subtitle" class="text-slate-500"></p>
+                </div>
+                <div id="module-header-actions" class="flex items-center gap-2 flex-shrink-0"></div>
+            </header>
+            <div id="module-content"></div>
+        </div>
+
+        <!-- VISTA DE DEFINIÇÕES GLOBAIS -->
+        <div id="settings-view" class="hidden">
+             <header class="mb-8 pb-4 border-b border-slate-200">
+                 <button id="back-to-hub-from-settings-btn" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold mb-2 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" /></svg>
+                    Voltar ao Menu Principal
+                </button>
+                <h1 class="text-3xl font-bold text-slate-900">Definições / Dados Mestres</h1>
+                <p class="text-slate-500">Gira todas as listas da aplicação num único local.</p>
+            </header>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow">
+                    <h3 class="font-bold text-lg mb-2">Definir Nome de Utilizador</h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="user-name-input" placeholder="Insira o seu nome..." class="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm">
+                        <button id="save-user-name-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md">Guardar</button>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+                <button data-context="artigos" class="settings-card-btn bg-white p-6 rounded-xl shadow hover:shadow-lg transition text-left">
+                    <h3 class="font-bold text-lg">Artigos de Inventário</h3>
+                </button>
+                <button data-context="equipamentos" class="settings-card-btn bg-white p-6 rounded-xl shadow hover:shadow-lg transition text-left">
+                    <h3 class="font-bold text-lg">Equipamentos</h3>
+                </button>
+                <button data-context="obras" class="settings-card-btn bg-white p-6 rounded-xl shadow hover:shadow-lg transition text-left">
+                    <h3 class="font-bold text-lg">Obras</h3>
+                </button>
+                <button data-context="trabalhadores" class="settings-card-btn bg-white p-6 rounded-xl shadow hover:shadow-lg transition text-left">
+                    <h3 class="font-bold text-lg">Trabalhadores</h3>
+                </button>
+            </div>
+            
+            <div id="settings-management-area" class="mt-8 hidden">
+                <h2 id="settings-management-title" class="text-2xl font-bold mb-4"></h2>
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button id="add-new-item-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">+ Adicionar</button>
+                    <button id="import-items-btn" class="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Importar de Texto</button>
+                </div>
+                <div id="settings-management-list" class="space-y-3"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAIS (partilhados) -->
+    <div id="modal-container"></div>
+    <div id="notification-modal" class="fixed bottom-5 right-5 z-50 hidden"><div id="notification-content" class="p-4 rounded-lg shadow-lg text-white font-semibold"></div></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, doc, addDoc, getDoc, getDocs, onSnapshot, query, where, writeBatch, serverTimestamp, updateDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- FUNÇÕES GLOBAIS ---
+        const showNotification = (message, type = 'success') => {
+            const el = document.getElementById('notification-modal');
+            el.querySelector('#notification-content').textContent = message;
+            el.querySelector('#notification-content').className = `p-4 rounded-lg shadow-lg text-white font-semibold ${type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 4000);
+        };
+
+        const formatDate = (timestamp) => {
+            if (!timestamp || !timestamp.seconds) return 'Data indisponível';
+            return new Date(timestamp.seconds * 1000).toLocaleString('pt-PT', { dateStyle: 'medium', timeStyle: 'short' });
+        };
+        
+        // --- INICIALIZAÇÃO DA APP ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            const firebaseConfig = {
+                apiKey: "AIzaSyBOWoJRYCC7CYBvtieuS8tJ5XkTKfUHDuQ",
+                authDomain: "inventario-ded36.firebaseapp.com",
+                projectId: "inventario-ded36",
+                storageBucket: "inventario-ded36.appspot.com",
+                messagingSenderId: "381290321142",
+                appId: "1:381290321142:web:e8ca2b55437e74deeb88d7"
+            };
+            
+            const appId = firebaseConfig.appId || 'default-integrated-app';
+            let db, html5QrCode;
+            let allArtigos = [], allEquipamentos = [], allObras = [], allTrabalhadores = [], allMovimentosInv = [], allMovimentosEquip = [];
+            let currentManagementContext = '';
+            let confirmCallback = null;
+            let userName = localStorage.getItem('userName') || '';
+            
+            const paths = {
+                artigos: `unified/${appId}/artigos`,
+                equipamentos: `unified/${appId}/equipamentos`,
+                obras: `unified/${appId}/obras`,
+                trabalhadores: `unified/${appId}/trabalhadores`,
+                movimentos_inventario: `unified/${appId}/movimentos_inventario`,
+                movimentos_equipamentos: `unified/${appId}/movimentos_equipamentos`,
+            };
+
+            // --- Seletores de DOM ---
+            const loadingScreen = document.getElementById('loading-screen');
+            const hubView = document.getElementById('hub-view');
+            const moduleView = document.getElementById('module-view');
+            const settingsView = document.getElementById('settings-view');
+            const modalContainer = document.getElementById('modal-container');
+            const userNameInput = document.getElementById('user-name-input');
+            userNameInput.value = userName;
+
+            // --- Lógica de Navegação ---
+            const showView = (view) => {
+                hubView.classList.add('hidden');
+                moduleView.classList.add('hidden');
+                settingsView.classList.add('hidden');
+                document.getElementById(view).classList.remove('hidden');
+            };
+
+            const openModule = (moduleType) => {
+                const moduleContent = document.getElementById('module-content');
+                const moduleHeaderActions = document.getElementById('module-header-actions');
+                
+                if (moduleType === 'inventory') {
+                    document.getElementById('module-title').textContent = 'Controlo de Inventário';
+                    document.getElementById('module-subtitle').textContent = 'Registe o consumo de materiais e artigos.';
+                    moduleHeaderActions.innerHTML = `<button id="export-pdf-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Exportar PDF</button>`;
+                    moduleContent.innerHTML = `
+                        <div class="bg-indigo-600 text-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center aspect-video hover:bg-indigo-700 transition-transform transform hover:scale-105 duration-300 cursor-pointer mb-8" id="scan-inventory-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-24 h-24 mb-2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.776 48.776 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" /></svg>
+                            <span class="font-semibold text-2xl">Ler QR Code de Artigo</span>
+                        </div>
+                        <h3 class="text-xl font-bold mb-4">Últimos Movimentos</h3>
+                        <div id="inventory-list" class="space-y-3"></div>`;
+                    renderInventoryList();
+                    document.getElementById('scan-inventory-btn').addEventListener('click', () => startScanner('inventory'));
+                    document.getElementById('export-pdf-btn').addEventListener('click', openExportModal);
+
+                } else if (moduleType === 'equipment') {
+                    document.getElementById('module-title').textContent = 'Controlo de Equipamentos';
+                    document.getElementById('module-subtitle').textContent = 'Rastreie a requisição e devolução de ferramentas.';
+                    moduleHeaderActions.innerHTML = `<button id="scan-equipment-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Scan Equipamento</button>`;
+                    moduleContent.innerHTML = `
+                        <div class="relative flex-grow mb-4">
+                            <input type="search" id="search-equipamentos-input" placeholder="Pesquisar por nome ou referência..." class="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm">
+                        </div>
+                        <div id="equipment-list" class="space-y-3"></div>`;
+                    renderEquipmentList();
+                    document.getElementById('scan-equipment-btn').addEventListener('click', () => startScanner('equipment'));
+                    document.getElementById('search-equipamentos-input').addEventListener('input', renderEquipmentList);
+                }
+                showView('module-view');
+            };
+
+            // --- Lógica de Renderização ---
+            const renderInventoryList = () => {
+                const listEl = document.getElementById('inventory-list');
+                if (!listEl) return;
+                listEl.innerHTML = '';
+                if (allMovimentosInv.length === 0) {
+                    listEl.innerHTML = `<p class="text-slate-500 text-center py-10">Nenhum movimento de inventário registado.</p>`;
+                    return;
+                }
+                allMovimentosInv.forEach(mov => {
+                    const artigo = allArtigos.find(a => a.id === mov.artigo_id) || { nome: 'Artigo Apagado', referencia: '-' };
+                    const obra = allObras.find(o => o.id === mov.obra_id) || { nome: 'Obra Apagada' };
+                    const el = document.createElement('div');
+                    el.className = 'bg-white p-4 rounded-lg shadow-sm border';
+                    el.innerHTML = `
+                        <div class="grid grid-cols-3 gap-4 items-center">
+                            <div>
+                                <p class="font-bold text-slate-800">${artigo.nome}</p>
+                                <p class="text-sm font-mono text-slate-500">${artigo.referencia}</p>
+                                <p class="text-sm text-slate-500">${obra.nome || 'Obra não encontrada'}</p>
+                            </div>
+                            <div class="text-center">
+                                <p class="text-red-600 font-bold text-xl">-${mov.quantidade_gasta}</p>
+                                <p class="text-xs text-slate-400">por: ${mov.userName || 'N/A'}</p>
+                            </div>
+                            <div class="text-right text-sm text-slate-500">
+                                <p>${formatDate(mov.data_movimento)}</p>
+                            </div>
+                        </div>`;
+                    listEl.appendChild(el);
+                });
+            };
+
+            const renderEquipmentList = () => {
+                const listEl = document.getElementById('equipment-list');
+                const searchInput = document.getElementById('search-equipamentos-input');
+                if (!listEl || !searchInput) return;
+                
+                const searchTerm = searchInput.value.toLowerCase();
+                let filtered = allEquipamentos.filter(f => f.nome.toLowerCase().includes(searchTerm) || f.referencia.toLowerCase().includes(searchTerm));
+                filtered.sort((a, b) => (a.status === 'indisponivel' ? -1 : 1) - (b.status === 'indisponivel' ? -1 : 1) || a.nome.localeCompare(b.nome));
+
+                listEl.innerHTML = '';
+                if (filtered.length === 0) {
+                    listEl.innerHTML = `<p class="text-slate-500 text-center py-10">Nenhum equipamento encontrado.</p>`;
+                    return;
+                }
+                filtered.forEach(equip => {
+                    const el = document.createElement('div');
+                    el.className = 'bg-white p-4 rounded-lg shadow-sm border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3';
+                    let statusInfoHTML = '';
+                    if (equip.status === 'indisponivel') {
+                        statusInfoHTML = `<div class="text-sm text-slate-600 sm:text-right"><p>Req. por: <strong class="text-slate-800">${equip.requisitada_por || 'N/A'}</strong></p><p>Obra: <strong class="text-slate-800">${equip.obra_destino || 'N/A'}</strong></p></div>`;
+                    }
+                    el.innerHTML = `
+                        <div class="flex-grow"><div class="flex items-center gap-3"><span class="status-badge ${equip.status === 'disponivel' ? 'status-disponivel' : 'status-indisponivel'}">${equip.status}</span><p class="font-semibold text-slate-800 text-lg">${equip.nome}</p></div><p class="text-sm text-slate-500 font-mono ml-4 mt-1">Ref: ${equip.referencia}</p></div>
+                        ${statusInfoHTML}`;
+                    listEl.appendChild(el);
+                });
+            };
+            
+            // --- Lógica do Scanner ---
+            let currentScanType = '';
+            const startScanner = (type) => {
+                currentScanType = type;
+                modalContainer.innerHTML = `
+                    <div id="qr-scanner-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+                        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative fade-in">
+                            <h3 class="text-xl font-semibold mb-2 text-center">Aponte a câmara para o QR Code</h3>
+                            <div id="qr-reader" style="width: 100%"></div>
+                            <p id="qr-scan-feedback" class="text-center text-sm mt-3 h-5 font-semibold"></p>
+                            <div class="mt-4 space-y-2 hidden" id="scan-confirmation-buttons">
+                                <button id="confirm-scan-btn" class="w-full bg-indigo-600 text-white font-bold py-3 px-5 rounded-lg">Confirmar Scan</button>
+                                <button id="rescan-btn" class="w-full bg-slate-500 text-white font-bold py-2 px-4 rounded-lg">Scan Novamente</button>
+                            </div>
+                            <button class="close-modal-btn w-full bg-slate-200 p-2 rounded mt-2">Fechar</button>
+                        </div>
+                    </div>`;
+                
+                html5QrCode = new Html5Qrcode("qr-reader");
+                const onScanSuccess = (decodedText) => {
+                    html5QrCode.pause();
+                    document.getElementById('qr-scan-feedback').textContent = `Código detetado: ${decodedText}`;
+                    document.getElementById('scan-confirmation-buttons').classList.remove('hidden');
+                    document.getElementById('confirm-scan-btn').onclick = () => {
+                        stopScanner();
+                        if (currentScanType === 'inventory') processScannedInventory(decodedText);
+                        else if (currentScanType === 'equipment') processScannedEquipment(decodedText);
+                    };
+                    document.getElementById('rescan-btn').onclick = () => {
+                        document.getElementById('scan-confirmation-buttons').classList.add('hidden');
+                        document.getElementById('qr-scan-feedback').textContent = '';
+                        html5QrCode.resume();
+                    };
+                };
+
+                html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess, () => {})
+                .catch(err => showNotification('Erro ao iniciar a câmara.', 'error'));
+            };
+
+            const stopScanner = () => {
+                if (html5QrCode && html5QrCode.isScanning) {
+                    html5QrCode.stop().then(() => html5QrCode.clear()).catch(() => {});
+                }
+                modalContainer.innerHTML = '';
+            };
+            
+            const processScannedInventory = async (ref) => {
+                 const artigo = allArtigos.find(a => a.referencia === ref);
+                 if (!artigo) return showNotification(`Artigo com referência "${ref}" não encontrado.`, 'error');
+                 
+                 modalContainer.innerHTML = `
+                    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+                        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 fade-in">
+                            <h3 class="text-2xl font-bold mb-2">Registar Gasto de Material</h3>
+                            <form id="inventory-usage-form">
+                                <div class="mb-4 p-4 bg-slate-50 rounded-lg border">
+                                    <p class="text-sm text-slate-500">Artigo</p><p class="font-semibold text-lg">${artigo.nome}</p>
+                                </div>
+                                <div class="mb-4"><label class="block text-sm font-medium">Quantidade</label><input type="number" id="usage-qty" min="1" required class="w-full p-2 border rounded"></div>
+                                <div class="mb-6"><label class="block text-sm font-medium">Obra</label><select id="usage-obra" required class="w-full p-2 border rounded"></select></div>
+                                <div class="flex justify-end gap-2"><button type="button" class="close-modal-btn p-2">Cancelar</button><button type="submit" class="p-2 bg-indigo-600 text-white rounded">Confirmar</button></div>
+                            </form>
+                        </div>
+                    </div>`;
+                
+                const obraSelect = modalContainer.querySelector('#usage-obra');
+                obraSelect.innerHTML = allObras.map(o => `<option value="${o.id}">${o.nome}</option>`).join('');
+                
+                modalContainer.querySelector('#inventory-usage-form').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const quantidade = parseInt(modalContainer.querySelector('#usage-qty').value);
+                    const obraId = modalContainer.querySelector('#usage-obra').value;
+                    if (isNaN(quantidade) || quantidade <= 0 || !obraId) return showNotification('Dados inválidos.', 'error');
+                    
+                    await addDoc(collection(db, paths.movimentos_inventario), {
+                        artigo_id: artigo.id,
+                        obra_id: obraId,
+                        quantidade_gasta: quantidade,
+                        userName: userName,
+                        data_movimento: serverTimestamp()
+                    });
+                    stopScanner();
+                    showNotification('Gasto registado com sucesso!', 'success');
+                });
+            };
+
+            const processScannedEquipment = async (ref) => {
+                const equip = allEquipamentos.find(e => e.referencia === ref);
+                if (!equip) return showNotification(`Equipamento com referência "${ref}" não encontrado.`, 'error');
+                
+                if (equip.status === 'disponivel') {
+                    modalContainer.innerHTML = `
+                        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+                            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 fade-in">
+                                <h3 class="text-2xl font-bold mb-2">Requisitar Equipamento</h3>
+                                <form id="equip-checkout-form">
+                                    <div class="mb-4 p-4 bg-slate-50 rounded-lg border"><p class="font-semibold text-lg">${equip.nome}</p></div>
+                                    <div class="mb-4"><label class="block text-sm font-medium">Trabalhador</label><select id="checkout-worker" required class="w-full p-2 border rounded"></select></div>
+                                    <div class="mb-6"><label class="block text-sm font-medium">Obra</label><select id="checkout-obra" required class="w-full p-2 border rounded"></select></div>
+                                    <div class="flex justify-end gap-2"><button type="button" class="close-modal-btn p-2">Cancelar</button><button type="submit" class="p-2 bg-emerald-600 text-white rounded">Confirmar</button></div>
+                                </form>
+                            </div>
+                        </div>`;
+                    modalContainer.querySelector('#checkout-worker').innerHTML = allTrabalhadores.map(t => `<option value="${t.id}|${t.nome}">${t.nome}</option>`).join('');
+                    modalContainer.querySelector('#checkout-obra').innerHTML = allObras.map(o => `<option value="${o.id}|${o.nome}">${o.nome}</option>`).join('');
+                    modalContainer.querySelector('#equip-checkout-form').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const [trabalhadorId, trabalhadorNome] = modalContainer.querySelector('#checkout-worker').value.split('|');
+                        const [obraId, obraNome] = modalContainer.querySelector('#checkout-obra').value.split('|');
+                        
+                        await updateDoc(doc(db, paths.equipamentos, equip.id), {
+                            status: 'indisponivel',
+                            requisitada_por: trabalhadorNome,
+                            obra_destino: obraNome,
+                            data_requisicao: serverTimestamp()
+                        });
+                        stopScanner();
+                        showNotification('Equipamento requisitado!', 'success');
+                    });
+                } else { // Check-in
+                     modalContainer.innerHTML = `
+                        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+                            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 fade-in">
+                                <h3 class="text-2xl font-bold mb-2">Confirmar Devolução</h3>
+                                <div class="mb-4 p-4 bg-amber-50 rounded-lg border">
+                                    <p class="font-semibold text-lg">${equip.nome}</p>
+                                    <p>Req. por: <strong>${equip.requisitada_por}</strong> para a obra <strong>${equip.obra_destino}</strong></p>
+                                </div>
+                                <div class="flex justify-end gap-2"><button type="button" class="close-modal-btn p-2">Cancelar</button><button id="confirm-checkin-btn" class="p-2 bg-red-600 text-white rounded">Confirmar Devolução</button></div>
+                            </div>
+                        </div>`;
+                    modalContainer.querySelector('#confirm-checkin-btn').addEventListener('click', async () => {
+                        await updateDoc(doc(db, paths.equipamentos, equip.id), {
+                            status: 'disponivel',
+                            requisitada_por: null,
+                            obra_destino: null,
+                            data_requisicao: null
+                        });
+                        stopScanner();
+                        showNotification('Equipamento devolvido!', 'success');
+                    });
+                }
+            };
+            
+            // --- Lógica de Definições e Gestão ---
+            const openSettingsManagement = (context) => {
+                currentManagementContext = context;
+                const titles = {
+                    artigos: 'Gerir Artigos de Inventário',
+                    equipamentos: 'Gerir Equipamentos',
+                    obras: 'Obras',
+                    trabalhadores: 'Gerir Trabalhadores'
+                };
+                document.getElementById('settings-management-title').textContent = titles[context];
+                document.getElementById('settings-management-area').classList.remove('hidden');
+                renderSettingsList();
+            };
+
+            const renderSettingsList = () => {
+                const listEl = document.getElementById('settings-management-list');
+                const dataMap = {
+                    artigos: allArtigos,
+                    equipamentos: allEquipamentos,
+                    obras: allObras,
+                    trabalhadores: allTrabalhadores
+                };
+                const data = dataMap[currentManagementContext];
+                listEl.innerHTML = '';
+                if (!data || data.length === 0) {
+                    listEl.innerHTML = `<p class="text-slate-500 text-center py-5">Nenhum item encontrado.</p>`;
+                    return;
+                }
+                data.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = 'bg-white p-4 rounded-lg shadow-sm border flex justify-between items-center';
+                    let content = ``;
+                    if (item.referencia) content += `<p class="font-mono text-sm text-slate-500">${item.referencia}</p>`;
+                    content += `<p class="font-semibold">${item.nome}</p>`;
+                    if (item.cliente) content += `<p class="text-sm text-slate-600">Cliente: ${item.cliente}</p>`;
+                    if (item.numero) content += `<p class="text-sm text-slate-600">Nº: ${item.numero}</p>`;
+                    
+                    el.innerHTML = `<div>${content}</div><button data-id="${item.id}" class="delete-item-btn p-2 text-red-500 hover:bg-red-100 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
+                    </button>`;
+                    listEl.appendChild(el);
+                });
+            };
+
+            const openAddItemModal = () => {
+                let formHTML = '';
+                let title = 'Adicionar Novo Item';
+                switch (currentManagementContext) {
+                    case 'artigos':
+                        title = 'Adicionar Novo Artigo';
+                        formHTML = `<form id="add-item-form">
+                                <div class="mb-4"><label class="block text-sm font-medium">Referência</label><input type="text" id="item-ref" required class="mt-1 w-full p-2 border rounded"></div>
+                                <div class="mb-4"><label class="block text-sm font-medium">Nome</label><input type="text" id="item-name" required class="mt-1 w-full p-2 border rounded"></div>
+                                <div class="flex justify-end gap-2"><button type="button" class="close-modal-btn p-2">Cancelar</button><button type="submit" class="p-2 bg-emerald-500 text-white rounded">Guardar</button></div>
+                            </form>`;
+                        break;
+                    case 'equipamentos':
+                         title = 'Adicionar Novo Equipamento';
+                         formHTML = `<form id="add-item-form">
+                                <div class="mb-4"><label class="block text-sm font-medium">Referência</label><input type="text" id="item-ref" required class="mt-1 w-full p-2 border rounded"></div>
+                                <div class="mb-4"><label class="block text-sm font-medium">Nome</label><input type="text" id="item-name" required class="mt-1 w-full p-2 border rounded"></div>
+                                <div class="flex justify-end gap-2"><button type="button" class="close-modal-btn p-2">Cancelar</button><button type="submit" class="p-2 bg-emerald-500 text-white rounded">Guardar</button></div>
+                            </form>`;
+                        break;
+                    case 'obras':
+                        title = 'Adicionar Nova Obra';
+                        formHTML = `<form id="add-item-form">
+                                <div class="mb-4"><label class="block text-sm font-medium">Número da Obra</label><input type="text" id="item-numero" required class="mt-1 w-full p-2 border rounded"></div>
+                                <div class="mb-4"><label class="block text-sm font-medium">Nome da Obra</label><input type="text" id="item-name" required class="mt-1 w-full p-2 border rounded"></div>
+                                <div class="mb-4"><label class="block text-sm font-medium">Cliente</label><input type="text" id="item-cliente" required class="mt-1 w-full p-2 border rounded"></div>
+                                <div class="flex justify-end gap-2"><button type="button" class="close-modal-btn p-2">Cancelar</button><button type="submit" class="p-2 bg-emerald-500 text-white rounded">Guardar</button></div>
+                            </form>`;
+                        break;
+                    case 'trabalhadores':
+                        title = 'Adicionar Novo Trabalhador';
+                        formHTML = `<form id="add-item-form">
+                                <div class="mb-4"><label class="block text-sm font-medium">Nome</label><input type="text" id="item-name" required class="mt-1 w-full p-2 border rounded"></div>
+                                <div class="flex justify-end gap-2"><button type="button" class="close-modal-btn p-2">Cancelar</button><button type="submit" class="p-2 bg-emerald-500 text-white rounded">Guardar</button></div>
+                            </form>`;
+                        break;
+                }
+                modalContainer.innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 fade-in">
+                        <h3 class="text-xl font-semibold mb-4">${title}</h3>
+                        ${formHTML}
+                    </div>
+                </div>`;
+                modalContainer.querySelector('#add-item-form').addEventListener('submit', handleAddItem);
+            };
+
+            const handleAddItem = async (e) => {
+                e.preventDefault();
+                const nameInput = modalContainer.querySelector('#item-name');
+                const name = nameInput ? nameInput.value.trim() : '';
+                if (!name && currentManagementContext !== 'obras') return showNotification('O nome é obrigatório.', 'error');
+
+                let newItem = { nome: name };
+                const path = paths[currentManagementContext];
+                let uniqueCheck;
+
+                switch (currentManagementContext) {
+                    case 'artigos':
+                    case 'equipamentos':
+                        const ref = modalContainer.querySelector('#item-ref').value.trim();
+                        if(!ref) return showNotification('A referência é obrigatória.', 'error');
+                        newItem.referencia = ref;
+                        if (currentManagementContext === 'equipamentos') newItem.status = 'disponivel';
+                        uniqueCheck = query(collection(db, path), where("referencia", "==", ref));
+                        break;
+                    case 'obras':
+                        const numero = modalContainer.querySelector('#item-numero').value.trim();
+                        const cliente = modalContainer.querySelector('#item-cliente').value.trim();
+                        if(!numero || !cliente || !name) return showNotification('Todos os campos são obrigatórios.', 'error');
+                        newItem.numero = numero;
+                        newItem.cliente = cliente;
+                        uniqueCheck = query(collection(db, path), where("numero", "==", numero));
+                        break;
+                    default: // trabalhadores
+                        uniqueCheck = query(collection(db, path), where("nome", "==", name));
+                }
+
+                const existing = await getDocs(uniqueCheck);
+                if (!existing.empty) {
+                    return showNotification('Já existe um item com este nome, número ou referência.', 'error');
+                }
+
+                await addDoc(collection(db, path), newItem);
+                stopScanner();
+                showNotification('Item adicionado com sucesso!', 'success');
+            };
+
+            const openImportModal = () => {
+                let instructions = '';
+                switch (currentManagementContext) {
+                    case 'artigos': instructions = 'Referencia;nome do artigo'; break;
+                    case 'equipamentos': instructions = 'referencia;nome do equipamento'; break;
+                    case 'obras': instructions = 'número de obra;cliente;Nome da obra'; break;
+                    case 'trabalhadores': instructions = 'nome do funcionário'; break;
+                }
+
+                modalContainer.innerHTML = `
+                    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+                        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 fade-in">
+                            <h3 class="text-xl font-semibold mb-4">Importar de Texto</h3>
+                            <p class="text-sm bg-slate-100 p-2 rounded mb-4">Cole um item por linha no formato: <strong class="font-mono">${instructions}</strong></p>
+                            <textarea id="import-text-area" class="w-full h-40 p-2 border rounded"></textarea>
+                            <div class="flex justify-end gap-2 mt-4">
+                                <button type="button" class="close-modal-btn p-2">Cancelar</button>
+                                <button type="button" id="confirm-import-btn" class="p-2 bg-sky-500 text-white rounded">Importar</button>
+                            </div>
+                        </div>
+                    </div>`;
+                modalContainer.querySelector('#confirm-import-btn').addEventListener('click', handleImport);
+            };
+
+            const handleImport = async () => {
+                const text = modalContainer.querySelector('#import-text-area').value.trim();
+                const lines = text.split('\n').filter(Boolean);
+                const path = paths[currentManagementContext];
+                const batch = writeBatch(db);
+                let newItemsCount = 0;
+
+                const q = query(collection(db, path));
+                const snapshot = await getDocs(q);
+                const existingRefs = new Set(snapshot.docs.map(d => d.data().referencia));
+                const existingObraNumeros = new Set(snapshot.docs.map(d => d.data().numero));
+                const existingNames = new Set(snapshot.docs.map(d => d.data().nome));
+
+                lines.forEach(line => {
+                    const parts = line.split(';').map(s => s.trim());
+                    switch (currentManagementContext) {
+                        case 'artigos':
+                        case 'equipamentos':
+                            const [ref, name] = parts;
+                            if (ref && name && !existingRefs.has(ref)) {
+                                const newItem = { referencia: ref, nome: name };
+                                if (currentManagementContext === 'equipamentos') newItem.status = 'disponivel';
+                                batch.set(doc(collection(db, path)), newItem);
+                                existingRefs.add(ref);
+                                newItemsCount++;
+                            }
+                            break;
+                        case 'obras':
+                            const [numero, cliente, nomeObra] = parts;
+                            if (numero && cliente && nomeObra && !existingObraNumeros.has(numero)) {
+                                batch.set(doc(collection(db, path)), { numero, cliente, nome: nomeObra });
+                                existingObraNumeros.add(numero);
+                                newItemsCount++;
+                            }
+                            break;
+                        case 'trabalhadores':
+                            const nomeTrabalhador = parts[0];
+                            if (nomeTrabalhador && !existingNames.has(nomeTrabalhador)) {
+                                batch.set(doc(collection(db, path)), { nome: nomeTrabalhador });
+                                existingNames.add(nomeTrabalhador);
+                                newItemsCount++;
+                            }
+                            break;
+                    }
+                });
+
+                if (newItemsCount > 0) await batch.commit();
+                stopScanner();
+                showNotification(`${newItemsCount} novos itens importados.`, 'success');
+            };
+            
+            const openExportModal = () => {
+                modalContainer.innerHTML = `
+                     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+                        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 fade-in">
+                            <h3 class="text-xl font-semibold mb-4">Exportar Movimentos para PDF</h3>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label class="block text-sm">Data de Início</label><input type="date" id="filter-start-date" class="mt-1 w-full p-2 border rounded"></div>
+                                    <div><label class="block text-sm">Data de Fim</label><input type="date" id="filter-end-date" class="mt-1 w-full p-2 border rounded"></div>
+                                </div>
+                            </div>
+                            <div class="mt-6 flex justify-end gap-2"><button type="button" class="close-modal-btn p-2">Cancelar</button><button id="confirm-export-btn" class="p-2 bg-red-500 text-white rounded">Gerar PDF</button></div>
+                        </div>
+                    </div>`;
+                modalContainer.querySelector('#confirm-export-btn').addEventListener('click', generateInventoryPDF);
+            };
+
+            const generateInventoryPDF = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                const startDate = modalContainer.querySelector('#filter-start-date').value ? new Date(modalContainer.querySelector('#filter-start-date').value) : null;
+                const endDate = modalContainer.querySelector('#filter-end-date').value ? new Date(modalContainer.querySelector('#filter-end-date').value) : null;
+                if (startDate) startDate.setHours(0,0,0,0);
+                if (endDate) endDate.setHours(23,59,59,999);
+
+                const filteredMovimentos = allMovimentosInv.filter(mov => {
+                    const movDate = new Date(mov.data_movimento.seconds * 1000);
+                    const startDateMatch = startDate ? movDate >= startDate : true;
+                    const endDateMatch = endDate ? movDate <= endDate : true;
+                    return startDateMatch && endDateMatch;
+                });
+
+                if (filteredMovimentos.length === 0) return showNotification('Nenhum movimento para os filtros selecionados.', 'error');
+
+                const head = [['Data', 'Referência', 'Artigo', 'Qtd.', 'Obra', 'Utilizador']];
+                const body = filteredMovimentos.map(mov => {
+                    const artigo = allArtigos.find(a => a.id === mov.artigo_id) || {};
+                    const obra = allObras.find(o => o.id === mov.obra_id) || {};
+                    return [
+                        formatDate(mov.data_movimento),
+                        artigo.referencia || 'N/A',
+                        artigo.nome || 'Apagado',
+                        mov.quantidade_gasta,
+                        obra.nome || 'Apagada',
+                        mov.userName || 'N/A'
+                    ];
+                });
+
+                doc.autoTable({ head, body, theme: 'striped', headStyles: { fillColor: [79, 70, 229] } });
+                doc.save(`relatorio_inventario_${new Date().toISOString().slice(0,10)}.pdf`);
+                stopScanner();
+            };
+
+            // --- Inicialização e Event Listeners ---
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+
+                document.getElementById('save-user-name-btn').addEventListener('click', () => {
+                    userName = userNameInput.value.trim();
+                    if(userName) {
+                        localStorage.setItem('userName', userName);
+                        showNotification('Nome guardado!', 'success');
+                    }
+                });
+
+                document.getElementById('go-to-inventory').addEventListener('click', () => openModule('inventory'));
+                document.getElementById('go-to-equipment').addEventListener('click', () => openModule('equipment'));
+                document.getElementById('go-to-settings').addEventListener('click', () => showView('settings-view'));
+                document.getElementById('back-to-hub-btn').addEventListener('click', () => showView('hub-view'));
+                document.getElementById('back-to-hub-from-settings-btn').addEventListener('click', () => {
+                    document.getElementById('settings-management-area').classList.add('hidden');
+                    showView('hub-view');
+                });
+                
+                document.querySelectorAll('.settings-card-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => openSettingsManagement(e.currentTarget.dataset.context));
+                });
+                
+                document.getElementById('add-new-item-btn').addEventListener('click', openAddItemModal);
+                document.getElementById('import-items-btn').addEventListener('click', openImportModal);
+                
+                modalContainer.addEventListener('click', (e) => {
+                    if (e.target.matches('.close-modal-btn')) stopScanner();
+                });
+
+                onSnapshot(query(collection(db, paths.artigos)), s => { allArtigos = s.docs.map(d => ({...d.data(), id: d.id})); if(currentManagementContext==='artigos') renderSettingsList(); });
+                onSnapshot(query(collection(db, paths.equipamentos)), s => { allEquipamentos = s.docs.map(d => ({...d.data(), id: d.id})); renderEquipmentList(); if(currentManagementContext==='equipamentos') renderSettingsList(); });
+                onSnapshot(query(collection(db, paths.obras)), s => { allObras = s.docs.map(d => ({...d.data(), id: d.id})); if(currentManagementContext==='obras') renderSettingsList(); });
+                onSnapshot(query(collection(db, paths.trabalhadores)), s => { allTrabalhadores = s.docs.map(d => ({...d.data(), id: d.id})); if(currentManagementContext==='trabalhadores') renderSettingsList(); });
+                onSnapshot(query(collection(db, paths.movimentos_inventario), orderBy('data_movimento', 'desc')), s => { allMovimentosInv = s.docs.map(d => ({...d.data(), id: d.id})); renderInventoryList(); });
+                
+                loadingScreen.classList.add('hidden');
+                showView('hub-view');
+
+            } catch (error) {
+                console.error("Erro fatal na inicialização: ", error);
+                loadingScreen.innerHTML = `<p class="text-red-500">Ocorreu um erro crítico ao iniciar a aplicação.</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
