@@ -1,0 +1,23 @@
+{
+  "name": "Gestão Integrada de Obra",
+  "short_name": "Gestão Obra",
+  "description": "Aplicação integrada para controlo de inventário e rastreamento de equipamentos.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "images/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "images/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
