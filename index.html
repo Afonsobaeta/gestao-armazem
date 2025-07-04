@@ -5,9 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão Integrada de Obra</title>
 
-    <!-- Meta Tags para PWA -->
+    <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#4f46e5"/>
     <meta name="description" content="Aplicação integrada para controlo de inventário e rastreamento de equipamentos.">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="images/icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Gestão Obra">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -180,9 +185,8 @@
                 appId: "1:381290321142:web:e8ca2b55437e74deeb88d7"
             };
             
-            // CORRECÇÃO: Sanitizar o App ID para ser usado como um ID de documento válido no Firestore.
             const rawAppId = firebaseConfig.appId || 'default-integrated-app';
-            const appId = rawAppId.replace(/[:.]/g, '-'); // Substitui caracteres inválidos.
+            const appId = rawAppId.replace(/[:.]/g, '-');
 
             let db, auth, html5QrCode;
             let allArtigos = [], allEquipamentos = [], allObras = [], allTrabalhadores = [], allMovimentosInv = [], allMovimentosEquip = [];
