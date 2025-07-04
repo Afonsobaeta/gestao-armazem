@@ -48,7 +48,7 @@
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p class="mt-4 text-slate-500">A iniciar aplicação...</p>
+            <p id="loading-message" class="mt-4 text-slate-500">A iniciar aplicação...</p>
         </div>
 
         <!-- HUB PRINCIPAL -->
@@ -151,8 +151,9 @@
     <div id="notification-modal" class="fixed bottom-5 right-5 z-50 hidden"><div id="notification-content" class="p-4 rounded-lg shadow-lg text-white font-semibold"></div></div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, collection, doc, addDoc, getDoc, getDocs, onSnapshot, query, where, writeBatch, serverTimestamp, updateDoc, deleteDoc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // --- FUNÇÕES GLOBAIS ---
         const showNotification = (message, type = 'success') => {
@@ -179,8 +180,11 @@
                 appId: "1:381290321142:web:e8ca2b55437e74deeb88d7"
             };
             
-            const appId = firebaseConfig.appId || 'default-integrated-app';
-            let db, html5QrCode;
+            // CORRECÇÃO: Sanitizar o App ID para ser usado como um ID de documento válido no Firestore.
+            const rawAppId = firebaseConfig.appId || 'default-integrated-app';
+            const appId = rawAppId.replace(/[:.]/g, '-'); // Substitui caracteres inválidos.
+
+            let db, auth, html5QrCode;
             let allArtigos = [], allEquipamentos = [], allObras = [], allTrabalhadores = [], allMovimentosInv = [], allMovimentosEquip = [];
             let currentManagementContext = '';
             let confirmCallback = null;
@@ -480,7 +484,7 @@
                     listEl.innerHTML = `<p class="text-slate-500 text-center py-5">Nenhum item encontrado.</p>`;
                     return;
                 }
-                data.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(item => {
+                data.sort((a,b) => (a.nome || '').localeCompare(b.nome || '')).forEach(item => {
                     const el = document.createElement('div');
                     el.className = 'bg-white p-4 rounded-lg shadow-sm border flex justify-between items-center';
                     let content = ``;
@@ -714,8 +718,23 @@
 
             // --- Inicialização e Event Listeners ---
             try {
-                const app = initializeApp(firebaseConfig);
+                const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
                 db = getFirestore(app);
+                auth = getAuth(app);
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        // User is signed in.
+                        loadingScreen.classList.add('hidden');
+                        showView('hub-view');
+                    } else {
+                        // User is signed out.
+                        signInAnonymously(auth).catch(error => {
+                            console.error("Anonymous sign-in failed:", error);
+                            document.getElementById('loading-message').textContent = 'Falha na autenticação.';
+                        });
+                    }
+                });
 
                 document.getElementById('save-user-name-btn').addEventListener('click', () => {
                     userName = userNameInput.value.trim();
@@ -750,13 +769,10 @@
                 onSnapshot(query(collection(db, paths.obras)), s => { allObras = s.docs.map(d => ({...d.data(), id: d.id})); if(currentManagementContext==='obras') renderSettingsList(); });
                 onSnapshot(query(collection(db, paths.trabalhadores)), s => { allTrabalhadores = s.docs.map(d => ({...d.data(), id: d.id})); if(currentManagementContext==='trabalhadores') renderSettingsList(); });
                 onSnapshot(query(collection(db, paths.movimentos_inventario), orderBy('data_movimento', 'desc')), s => { allMovimentosInv = s.docs.map(d => ({...d.data(), id: d.id})); renderInventoryList(); });
-                
-                loadingScreen.classList.add('hidden');
-                showView('hub-view');
 
             } catch (error) {
                 console.error("Erro fatal na inicialização: ", error);
-                loadingScreen.innerHTML = `<p class="text-red-500">Ocorreu um erro crítico ao iniciar a aplicação.</p>`;
+                document.getElementById('loading-message').textContent = `Ocorreu um erro crítico: ${error.message}`;
             }
         });
     </script>
